@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Multi Product Price Calculator</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{
+            --bg:#f5f7fb; --card:#fff; --accent:#0b74de; --muted:#6b7280; --border:#e6e9ef;
+            --success:#10b981; --danger:#ef4444; --shadow: 0 6px 18px rgba(11,116,222,0.08);
+            --radius:10px;
+        }
+        *{box-sizing    :border-box}
+        body{
+            margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            background:linear-gradient(180deg,var(--bg),#eef3fb 60%);color:#0f1724;padding:28px;
+            -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+        }
+
+        .wrap{
+            max-width:1100px;margin:0 auto;
+            display:grid;grid-template-columns:1fr;gap:20px;
+        }
+
+        header{
+            display:flex;align-items:center;justify-content:space-between;gap:16px;
+        }
+        h1{margin:0;font-size:20px;color:#07203a}
+        .subtitle{color:var(--muted);font-size:13px}
+
+        .card{
+            background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+            padding:18px;box-shadow:var(--shadow);
+        }
+
+        .form-grid{
+            display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;
+        }
+        label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+        input[type="number"]{
+            width:100%;padding:10px 12px;border:1px solid #d9e2ef;border-radius:8px;background:#fbfdff;
+            font-size:15px;color:#07203a;
+            outline: none;transition:box-shadow .12s, border-color .12s;
+        }
+        input[type="number"]:focus{border-color:var(--accent);box-shadow:0 4px 12px rgba(11,116,222,0.08)}
+
+        .actions{display:flex;gap:10px;flex-wrap:wrap}
+        button{
+            appearance:none;border:0;cursor:pointer;border-radius:8px;padding:10px 14px;font-weight:600;
+            display:inline-flex;align-items:center;gap:8px;
+        }
+        .btn-primary{background:linear-gradient(90deg,var(--accent),#0a64c7);color:#fff;box-shadow:0 6px 16px rgba(11,116,222,0.12)}
+        .btn-ghost{background:transparent;border:1px solid var(--border);color:#07203a}
+        .btn-clear{background:var(--danger);color:#fff}
+
+        /* Results / table */
+        .results h2{margin:0 0 12px;font-size:16px;color:#07203a}
+        .table-wrap{overflow:auto;border-radius:8px;border:1px solid var(--border);background:linear-gradient(#fff,#fbfdff)}
+        table{width:100%;border-collapse:collapse;min-width:720px;font-size:14px}
+        thead th{position:sticky;top:0;background:#f8fbff;padding:12px 14px;text-align:left;color:#263243;border-bottom:1px solid var(--border)}
+        tbody td{padding:12px 14px;border-bottom:1px dashed #eef3f8;color:#102030}
+        tbody tr:nth-child(even){background:#fcfdff}
+        tfoot td{padding:12px 14px;font-weight:700;background:#fbfdff}
+
+        .muted{color:var(--muted);font-size:13px}
+        .price{font-weight:700;color:#0b3f6b}
+        .packing{color:#475569}
+
+        @media (max-width:640px){
+            body{padding:16px}
+            h1{font-size:18px}
+            .form-grid{grid-template-columns:1fr}
+            table{min-width:640px}
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <div>
+                <h1>Multi Product Price Calculator</h1>
+                <div class="subtitle">Enter current raw-material rates to compute product prices</div>
+            </div>
+            <div class="muted">Labour rate: 6%</div>
+        </header>
+
+        <section class="card" aria-labelledby="inputs">
+            <div id="inputs" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+                <div style="flex:1">
+                    <div class="form-grid">
+                        <div>
+                            <label for="copper">Copper price (₹/kg)</label>
+                            <input id="copper" type="number" step="0.01" min="0" placeholder="e.g. 800" inputmode="decimal" />
+                        </div>
+                        <div>
+                            <label for="pvc">PVC (G-GAURD) (₹/kg)</label>
+                            <input id="pvc" type="number" step="0.01" min="0" placeholder="e.g. 120" inputmode="decimal" />
+                        </div>
+                        <div>
+                            <label for="pvc1">PVC (FINE/CARE/POLYDEX) (₹/kg)</label>
+                            <input id="pvc1" type="number" step="0.01" min="0" placeholder="e.g. 130" inputmode="decimal" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions" aria-hidden="false" style="margin-left:auto">
+                    <button id="calc" class="btn-primary" title="Calculate prices">Calculate Prices</button>
+                    <button id="clear" class="btn-ghost" title="Clear inputs">Clear</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="results" class="card results" aria-live="polite"></section>
+    </div>
+
+    <script>
+        const LABOUR_RATE = 0.06;
+
+        const PRODUCTS = {
+            "1.0 SQ MM G-GAURD": { copper: 0.636, pvc: 0.765, packing: 10 },
+            "1.5 SQ MM G-GAURD": { copper: 1.000, pvc: 0.800, packing: 15 },
+            "2.5 SQ MM G-GAURD": { copper: 1.636, pvc: 1.165, packing: 20 },
+            "4.0 SQ MM G-GAURD": { copper: 2.544, pvc: 1.457, packing: 30 }
+        };
+
+        const PRODUCTS1 = {
+            "1.0 SQ MM FINE GAURD": { copper: 0.520, pvc1: 0.79, packing: 10 },
+            "1.5 SQ MM FINE GAURD": { copper: 0.816, pvc1: 0.785, packing: 15 },
+            "2.5 SQ MM FINE GAURD": { copper: 1.335, pvc1: 1.17, packing: 20 },
+            "4.0 SQ MM FINE GAURD": { copper: 2.077, pvc1: 1.624, packing: 30 },
+            "1.0 SQ MM FINE CARE": { copper: 0.421, pvc1: 0.88, packing: 10 },
+            "1.5 SQ MM FINE CARE": { copper: 0.661, pvc1: 0.94, packing: 15 },
+            "2.5 SQ MM FINE CARE": { copper: 1.082, pvc1: 1.319, packing: 20 },
+            "1.0 SQ MM POLYDEX": { copper: 0.333, pvc1: 0.868, packing: 10 },
+            "1.5 SQ MM POLYDEX": { copper: 0.523, pvc1: 0.778, packing: 15 },
+            "2.5 SQ MM POLYDEX": { copper: 0.855, pvc1: 1.246, packing: 20 }
+        };
+
+        function formatINR(value){
+            return '₹ ' + Number(value).toFixed(2);
+        }
+
+        function calculateSet(products, copperRate, pvcRate, pvcKeyName){
+            const rows = [];
+            for (const [name, data] of Object.entries(products)) {
+                const copperPrice = data.copper * copperRate;
+                const pvcPrice = (data[pvcKeyName] || data.pvc || 0) * pvcRate;
+                const labour = (copperPrice + pvcPrice) * LABOUR_RATE;
+                const finalPrice = copperPrice + pvcPrice + labour + data.packing;
+                rows.push({ name, copperPrice, pvcPrice, labour, packing: data.packing, finalPrice });
+            }
+            return rows;
+        }
+
+        function renderTable(title, rows){
+            let html = `<h2>${title}</h2>`;
+            html += '<div class="table-wrap"><table><thead><tr><th>Product</th><th>Copper</th><th>PVC</th><th>Labour</th><th>Packing</th><th>Final Price</th></tr></thead><tbody>';
+            for (const r of rows){
+                html += `<tr>
+                    <td>${r.name}</td>
+                    <td class="price">${formatINR(r.copperPrice)}</td>
+                    <td class="price">${formatINR(r.pvcPrice)}</td>
+                    <td>${formatINR(r.labour)}</td>
+                    <td class="packing">${formatINR(r.packing)}</td>
+                    <td class="price"><strong>${formatINR(r.finalPrice)}</strong></td>
+                </tr>`;
+            }
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        document.getElementById('calc').addEventListener('click', () => {
+            const copperRate = parseFloat(document.getElementById('copper').value);
+            const pvcRate = parseFloat(document.getElementById('pvc').value);
+            const pvcRate1 = parseFloat(document.getElementById('pvc1').value);
+
+            if (isNaN(copperRate) || isNaN(pvcRate) || isNaN(pvcRate1)) {
+                alert('Please enter valid numeric rates for all fields.');
+                return;
+            }
+
+            const ggaurdRows = calculateSet(PRODUCTS, copperRate, pvcRate, 'pvc');
+            const otherRows = calculateSet(PRODUCTS1, copperRate, pvcRate1, 'pvc1');
+
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            results.innerHTML += renderTable('G-GAURD Product Prices', ggaurdRows);
+            results.innerHTML += renderTable('FINE/CARE/POLYDEX Product Prices', otherRows);
+        });
+
+        document.getElementById('clear').addEventListener('click', () => {
+            document.getElementById('copper').value = '';
+            document.getElementById('pvc').value = '';
+            document.getElementById('pvc1').value = '';
+            document.getElementById('results').innerHTML = '';
+        });
+    </script>
+</body>
+</html>
